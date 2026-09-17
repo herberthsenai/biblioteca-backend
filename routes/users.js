@@ -118,7 +118,7 @@ router.delete('/:id', (req, res) => {
     return res.status(404).json({ error: 'Morador não encontrado.' });
   }
 
-  // Check if resident has active or pending loans
+  // Bloqueia exclusão se o morador tiver empréstimos ativos ou pendentes
   const pendingOrActive = db.prepare(
     "SELECT COUNT(*) as c FROM loans WHERE user_id = ? AND status IN ('active', 'pending')"
   ).get(residentId).c;
@@ -129,7 +129,7 @@ router.delete('/:id', (req, res) => {
     });
   }
 
-  // Delete past loans and user
+  // Remove histórico de empréstimos e o cadastro
   db.prepare('DELETE FROM loans WHERE user_id = ?').run(residentId);
   db.prepare('DELETE FROM users WHERE id = ?').run(residentId);
 
