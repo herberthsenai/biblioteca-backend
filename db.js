@@ -16,6 +16,8 @@ db.exec(`
     unit                TEXT    NOT NULL,
     email               TEXT    NOT NULL UNIQUE,
     password_hash       TEXT    NOT NULL,
+    cpf                 TEXT,
+    whatsapp            TEXT,
     role                TEXT    NOT NULL DEFAULT 'resident',
     reset_token         TEXT,
     reset_token_expires INTEGER,
@@ -43,22 +45,26 @@ db.exec(`
   );
 `);
 
-// ── Seed demo data (only if empty) ───────────────────────────────────────────
+// Migrations for existing databases
+try { db.exec('ALTER TABLE users ADD COLUMN cpf TEXT;'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN whatsapp TEXT;'); } catch {}
+
+// ── Admin user setup ──────────────────────────────────────────────────────────
 const bcrypt = require('bcryptjs');
 
-const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
-if (userCount === 0) {
-  const hash = bcrypt.hashSync('admin123', 10);
+const adminEmail = 'herberthfaquimbrasil@gmail.com';
+const adminPass = '8732#!Sp@2026';
+const adminHash = bcrypt.hashSync(adminPass, 10);
+const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
+
+if (!existingAdmin) {
   db.prepare(`
     INSERT INTO users (name, unit, email, password_hash, role)
     VALUES (?, ?, ?, ?, ?)
-  `).run('Administrador', 'Portaria', 'admin@biblioteca.com', hash, 'admin');
-
-  const residentHash = bcrypt.hashSync('morador123', 10);
-  db.prepare(`
-    INSERT INTO users (name, unit, email, password_hash)
-    VALUES (?, ?, ?, ?)
-  `).run('Maria Silva', 'Bloco A / Apt 101', 'maria@email.com', residentHash);
+  `).run('Herberth Brasil', 'Administração', adminEmail, adminHash, 'admin');
+} else {
+  db.prepare('UPDATE users SET password_hash = ?, role = ? WHERE id = ?')
+    .run(adminHash, 'admin', existingAdmin.id);
 }
 
 const bookCount = db.prepare('SELECT COUNT(*) as c FROM books').get().c;

@@ -7,22 +7,23 @@ const db = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'biblioteca_residencial_secret_2024';
 
-// ── Register ──────────────────────────────────────────────────────────────────
+// ── Register (Morador) ────────────────────────────────────────────────────────
 router.post('/register', (req, res) => {
-  const { name, unit, email, password } = req.body;
-  if (!name || !unit || !email || !password)
-    return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
+  const { name, unit, email, password, cpf, whatsapp } = req.body;
+  if (!name || !unit || !email || !password || !cpf || !whatsapp)
+    return res.status(400).json({ error: 'Todos os campos são obrigatórios (Nome, Unidade, E-mail, Senha, CPF e WhatsApp).' });
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const cleanEmail = email.trim().toLowerCase();
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail);
   if (existing)
     return res.status(409).json({ error: 'E-mail já cadastrado.' });
 
   const password_hash = bcrypt.hashSync(password, 10);
   const { lastInsertRowid } = db.prepare(
-    'INSERT INTO users (name, unit, email, password_hash) VALUES (?, ?, ?, ?)'
-  ).run(name, unit, email, password_hash);
+    'INSERT INTO users (name, unit, email, password_hash, cpf, whatsapp, role) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(name.trim(), unit.trim(), cleanEmail, password_hash, cpf.trim(), whatsapp.trim(), 'resident');
 
-  const user = db.prepare('SELECT id, name, unit, email, role FROM users WHERE id = ?').get(lastInsertRowid);
+  const user = db.prepare('SELECT id, name, unit, email, cpf, whatsapp, role FROM users WHERE id = ?').get(lastInsertRowid);
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.status(201).json({ token, user });
 });
@@ -85,7 +86,7 @@ router.post('/reset-password', (req, res) => {
 // ── Me ────────────────────────────────────────────────────────────────────────
 const authMiddleware = require('../middleware/auth');
 router.get('/me', authMiddleware, (req, res) => {
-  const user = db.prepare('SELECT id, name, unit, email, role, created_at FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT id, name, unit, email, role, cpf, whatsapp, created_at FROM users WHERE id = ?').get(req.user.id);
   res.json(user);
 });
 
